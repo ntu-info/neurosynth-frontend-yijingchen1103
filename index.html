@@ -1,293 +1,529 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>AJAX Demo – /terms, /terms/&lt;t1&gt;, /query/&lt;q&gt;/studies</title>
-  <style>
-    :root { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, "Noto Sans", sans-serif; }
-    body { margin: 24px; line-height: 1.55; }
-    h1 { margin-bottom: 6px; }
-    .muted { color: #6b7280; }
-    .row { display: grid; grid-template-columns: 1fr; gap: 16px; }
-    @media (min-width: 1100px) { .row { grid-template-columns: 1fr 1fr 1fr; } }
-    .card { border: 1px solid #e5e7eb; border-radius: 12px; padding: 16px; box-shadow: 0 1px 2px rgb(0 0 0 / 0.06); background:#fff; }
-    .btn { padding: 8px 12px; border-radius: 10px; border: 1px solid #d1d5db; background: #f9fafb; cursor: pointer; }
-    .btn:active { transform: translateY(1px); }
-    .input { width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 10px; }
-    .flex { display:flex; gap:8px; align-items:center; }
-    .chips { margin: 8px 0 8px; }
-    .badge { display:inline-block; padding:2px 8px; border-radius:999px; background:#eef2ff; color:#3730a3; margin:2px; font-size:12px; border:1px solid #c7d2fe;}
-    .tag { display:inline-block; padding:2px 8px; border-radius:999px; background:#ecfeff; color:#155e75; margin:2px; font-size:12px; border:1px solid #a5f3fc;}
-    pre { white-space: pre-wrap; word-break: break-word; background:#f8fafc; border:1px solid #e5e7eb; padding:12px; border-radius:10px; max-height: 60vh; overflow:auto;}
-    .grid { display:grid; gap:10px; }
-    .study { border:1px solid #e5e7eb; border-radius:12px; padding:12px; }
-    .title { font-weight:600; }
-    .kv { font-size: 13px; color:#374151; }
-    .spinner { display:inline-block; width:16px; height:16px; border:2px solid #d1d5db; border-top-color:#111827; border-radius:50%; animation:spin 0.8s linear infinite; vertical-align: -3px;}
-    @keyframes spin { to { transform: rotate(360deg);} }
-  </style>
-</head>
-<body>
-  <h1>AJAX Demo</h1>
-  <p class="muted">Backend: <code>https://mil.psy.ntu.edu.tw:5000</code></p>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Neurosynth AJAX Frontend</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-  <div class="row">
-    <!-- A. /terms -->
-    <section class="card">
-      <h2>All Terms (<code>/terms</code>)</h2>
-      <p class="muted">載入所有可用 terms；大量結果時僅展示前 200 筆。</p>
-      <div class="flex" style="margin: 8px 0 12px;">
-        <button id="btn-terms" class="btn">Load /terms</button>
-        <span id="status-terms" class="muted"></span>
+    <!-- Tailwind CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            borderRadius: {
+              '2.5xl': '1.35rem',
+            },
+          },
+        },
+      };
+    </script>
+  </head>
+  <body class="bg-slate-50 text-slate-900 min-h-screen">
+    <!-- top bar -->
+    <header class="bg-white/80 backdrop-blur border-b border-slate-200 sticky top-0 z-10">
+      <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
+        <div>
+          <h1 class="text-lg font-semibold tracking-tight">AJAX Demo – Neurosynth Frontend</h1>
+          <p class="text-sm text-slate-500">
+            Backend:
+            <code class="font-mono text-slate-700">https://mil.psy.ntu.edu.tw:5000</code>
+          </p>
+        </div>
+        <div class="flex gap-2">
+          <a
+            href="https://github.com/ntu-info/neurosynth-frontend-yijingchen1103"
+            class="text-sm text-slate-500 hover:text-slate-800"
+            >GitHub Repo</a
+          >
+          <span class="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100">
+            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            live
+          </span>
+        </div>
       </div>
-      <div id="terms-chips" class="chips"></div>
-      <pre id="out-terms">（尚未載入）</pre>
-    </section>
+    </header>
 
-    <!-- B. /terms/<t1> -->
-    <section class="card">
-      <h2>Associated Terms (<code>/terms/&lt;t1&gt;</code>)</h2>
-      <p class="muted">在輸入框內打字即自動查詢（debounce 350ms）。如：<code>amygdala</code></p>
-      <input id="inp-t1" class="input" placeholder="Type a term, e.g., amygdala" autocomplete="off" />
-      <div class="flex" style="margin: 8px 0 12px;">
-        <span id="status-t1" class="muted">（等待輸入）</span>
+    <main class="max-w-6xl mx-auto px-4 py-6 space-y-6">
+      <p class="text-sm text-slate-500">
+        This page shows how to call <code>/terms</code>, <code>/terms/&lt;t1&gt;</code>, and
+        <code>/query/&lt;q&gt;/studies</code> using pure frontend (AJAX). Typing = request (debounced).
+      </p>
+
+      <!-- 3 columns -->
+      <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+        <!-- A. /terms -->
+        <section
+          class="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-6 flex flex-col gap-4"
+        >
+          <div class="flex items-start justify-between gap-2">
+            <div>
+              <h2 class="text-xl font-semibold flex items-center gap-2">
+                All Terms
+                <span class="text-xs font-mono bg-slate-100 px-2 py-0.5 rounded">/terms</span>
+              </h2>
+              <p class="text-sm text-slate-500">
+                載入所有可用 terms；大量結果時僅展示前 <b>200</b> 筆。
+              </p>
+            </div>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-3">
+            <button
+              id="btn-terms"
+              class="inline-flex items-center gap-1 px-3 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 active:translate-y-px transition text-sm"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24"
+                stroke="currentColor" stroke-width="1.6">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9M20 20v-5h-.581m-15.357-2a8.003 8.003 0 0015.357 2" />
+              </svg>
+              Load /terms
+            </button>
+            <span id="status-terms" class="text-xs text-slate-500"></span>
+          </div>
+
+          <!-- example buttons -->
+          <div class="flex flex-wrap gap-2">
+            <button
+              data-term-example="amygdala"
+              class="terms-example text-xs px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700"
+            >
+              Try: amygdala
+            </button>
+            <button
+              data-term-example="pain"
+              class="terms-example text-xs px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700"
+            >
+              Try: pain
+            </button>
+          </div>
+
+          <div id="terms-chips" class="flex flex-wrap gap-1"></div>
+
+          <pre
+            id="out-terms"
+            class="text-xs bg-slate-50 border border-slate-100 rounded-xl p-3 text-slate-800 max-h-[50vh] overflow-auto font-mono"
+          >(尚未載入)</pre>
+        </section>
+
+        <!-- B. /terms/<t1> -->
+        <section
+          class="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-6 flex flex-col gap-4"
+        >
+          <div>
+            <h2 class="text-xl font-semibold flex items-center gap-2">
+              Associated Terms
+              <span class="text-xs font-mono bg-slate-100 px-2 py-0.5 rounded">/terms/&lt;t1&gt;</span>
+            </h2>
+            <p class="text-sm text-slate-500">
+              在輸入框內打字即自動查詢（debounce 350ms）。如：
+              <code class="font-mono text-xs text-slate-700">amygdala</code>
+            </p>
+          </div>
+
+          <div class="space-y-2">
+            <input
+              id="inp-t1"
+              class="w-full rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-slate-400 focus:ring-2 focus:ring-slate-200/60 px-3 py-2 text-sm outline-none transition"
+              placeholder="Type a term, e.g., amygdala"
+              autocomplete="off"
+            />
+            <div class="flex items-center gap-3">
+              <span id="status-t1" class="text-xs text-slate-500">(等待輸入)</span>
+              <span class="text-[0.65rem] text-slate-400">auto: oninput → fetch</span>
+            </div>
+          </div>
+
+          <div id="assoc-chips" class="flex flex-wrap gap-1"></div>
+
+          <pre
+            id="out-t1"
+            class="text-xs bg-slate-50 border border-slate-100 rounded-xl p-3 text-slate-800 max-h-[50vh] overflow-auto font-mono"
+          >(等待輸入)</pre>
+        </section>
+
+        <!-- C. /query/<q>/studies -->
+        <section
+          class="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-6 flex flex-col gap-4"
+        >
+          <div>
+            <h2 class="text-xl font-semibold flex items-center gap-2">
+              Logical Search – Studies
+              <span class="text-xs font-mono bg-slate-100 px-2 py-0.5 rounded"
+                >/query/&lt;q&gt;/studies</span
+              >
+            </h2>
+            <p class="text-sm text-slate-500">
+              支援空白、AND、OR、NOT。例：
+              <code class="font-mono text-xs text-slate-700">amygdala not emotion</code>
+            </p>
+          </div>
+
+          <div class="space-y-2">
+            <input
+              id="inp-q"
+              class="w-full rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-slate-400 focus:ring-2 focus:ring-slate-200/60 px-3 py-2 text-sm outline-none transition"
+              placeholder="Type a query, e.g., amygdala not emotion"
+              autocomplete="off"
+            />
+            <div class="flex items-center gap-3">
+              <span id="status-q" class="text-xs text-slate-500">(等待輸入)</span>
+              <div class="flex gap-1">
+                <button
+                  data-query-example="amygdala not emotion"
+                  class="query-example text-[0.65rem] px-2 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700"
+                >
+                  amygdala not emotion
+                </button>
+                <button
+                  data-query-example="pain OR reward"
+                  class="query-example text-[0.65rem] px-2 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700"
+                >
+                  pain OR reward
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div id="studies" class="grid gap-2"></div>
+
+          <pre
+            id="out-q"
+            class="text-xs bg-slate-50 border border-slate-100 rounded-xl p-3 text-slate-800 max-h-[50vh] overflow-auto font-mono"
+          >(等待輸入)</pre>
+        </section>
       </div>
-      <div id="assoc-chips" class="chips"></div>
-      <pre id="out-t1">（等待輸入）</pre>
-    </section>
+    </main>
 
-    <!-- C. /query/<q_string>/studies -->
-    <section class="card">
-      <h2>Logical Search – Studies (<code>/query/&lt;q&gt;/studies</code>)</h2>
-      <p class="muted">支援空白、AND、OR、NOT。例：<code>amygdala not emotion</code></p>
-      <input id="inp-q" class="input" placeholder='Type a query, e.g., amygdala not emotion' autocomplete="off" />
-      <div class="flex" style="margin: 8px 0 12px;">
-        <span id="status-q" class="muted">（等待輸入）</span>
-      </div>
-      <div id="studies" class="grid"></div>
-      <pre id="out-q">（等待輸入）</pre>
-    </section>
-  </div>
+    <script>
+      const BASE = "https://mil.psy.ntu.edu.tw:5000";
 
-  <script>
-    const BASE = 'https://mil.psy.ntu.edu.tw:5000';
-
-    // ---------- 共用：智慧 fetch ----------
-    async function fetchSmart(url, signal) {
-      const resp = await fetch(url, { signal });
-      const info = `HTTP ${resp.status} ${resp.statusText}`;
-      const ct = resp.headers.get('content-type') || '';
-      if (!resp.ok) {
-        const text = await resp.text().catch(()=>'');
-        throw new Error(info + (text ? `\n\n${text}` : ''));
-      }
-      if (ct.includes('application/json')) {
-        const data = await resp.json();
-        return { info, data, isJSON: true };
-      } else {
-        const text = await resp.text();
-        return { info, data: text, isJSON: false };
-      }
-    }
-
-    function escapeHtml(s) {
-      return String(s)
-        .replaceAll('&', '&amp;')
-        .replaceAll('<', '&lt;')
-        .replaceAll('>', '&gt;')
-        .replaceAll('"', '&quot;')
-        .replaceAll("'", '&#39;');
-    }
-
-    // ---------- A. /terms ----------
-    let abortAllTerms;
-    async function loadAllTerms() {
-      if (abortAllTerms) abortAllTerms.abort();
-      abortAllTerms = new AbortController();
-
-      const status = document.getElementById('status-terms');
-      const chips = document.getElementById('terms-chips');
-      const out = document.getElementById('out-terms');
-
-      status.innerHTML = '<span class="spinner"></span> Requesting…';
-      chips.innerHTML = '';
-      out.textContent = '';
-
-      try {
-        const { info, data, isJSON } = await fetchSmart(`${BASE}/terms`, abortAllTerms.signal);
-        status.textContent = info;
-
-        if (isJSON && (Array.isArray(data) || Array.isArray(data?.terms))) {
-          const arr = Array.isArray(data) ? data : data.terms;
-          const show = arr.slice(0, 200);
-          chips.innerHTML = show.map(t => `<span class="badge">${escapeHtml(t)}</span>`).join('');
+      // ===== 共用小工具 =====
+      async function fetchSmart(url, signal) {
+        const resp = await fetch(url, { signal });
+        const info = `HTTP ${resp.status} ${resp.statusText}`;
+        const ct = resp.headers.get("content-type") || "";
+        if (!resp.ok) {
+          const text = await resp.text().catch(() => "");
+          throw new Error(info + (text ? `\\n\\n${text}` : ""));
         }
-        out.textContent = isJSON ? JSON.stringify(data, null, 2) : String(data);
-      } catch (err) {
-        status.textContent = 'Request failed';
-        out.textContent =
-          'Error: ' + (err?.message || String(err)) +
-          '\n\nCommon causes:\n1) CORS/HTTPS issues\n2) Server unavailable\n3) Network problems';
-      }
-    }
-    document.getElementById('btn-terms').addEventListener('click', loadAllTerms);
-
-    // ---------- B. /terms/<t1> ----------
-    let abortT1;
-    const DEBOUNCE_MS = 350;
-    let t1Timer = null;
-
-    document.getElementById('inp-t1').addEventListener('input', (e) => {
-      const val = e.target.value.trim();
-      const status = document.getElementById('status-t1');
-      const chips = document.getElementById('assoc-chips');
-      const out = document.getElementById('out-t1');
-
-      if (!val) {
-        if (abortT1) abortT1.abort();
-        status.textContent = '（等待輸入）';
-        chips.innerHTML = '';
-        out.textContent = '（等待輸入）';
-        return;
-      }
-      status.innerHTML = '<span class="spinner"></span> Typing… waiting to query';
-      clearTimeout(t1Timer);
-      t1Timer = setTimeout(() => fetchAssociatedTerms(val), DEBOUNCE_MS);
-    });
-
-    async function fetchAssociatedTerms(t1) {
-      if (abortT1) abortT1.abort();
-      abortT1 = new AbortController();
-
-      const status = document.getElementById('status-t1');
-      const chips = document.getElementById('assoc-chips');
-      const out = document.getElementById('out-t1');
-
-      status.innerHTML = '<span class="spinner"></span> Requesting…';
-      chips.innerHTML = '';
-      out.textContent = '';
-
-      const encoded = encodeURIComponent(t1);
-      try {
-        const { info, data, isJSON } = await fetchSmart(`${BASE}/terms/${encoded}`, abortT1.signal);
-        status.textContent = info;
-
-        if (isJSON && (Array.isArray(data) || Array.isArray(data?.terms))) {
-          const arr = Array.isArray(data) ? data : data.terms;
-          chips.innerHTML = arr.map(x => `<span class="badge">${escapeHtml(x)}</span>`).join('');
-        }
-        out.textContent = isJSON ? JSON.stringify(data, null, 2) : String(data);
-      } catch (err) {
-        status.textContent = 'Request failed';
-        out.textContent =
-          'Error: ' + (err?.message || String(err)) +
-          '\n\nTips:\n- Check the term\n- Server availability\n- Network / CORS issues';
-      }
-    }
-
-    // ---------- C. /query/<q>/studies ----------
-    let abortQ;
-    let qTimer = null;
-    const DEBOUNCE_Q_MS = 400;
-
-    document.getElementById('inp-q').addEventListener('input', (e) => {
-      const q = e.target.value.trim();
-      const status = document.getElementById('status-q');
-      const list = document.getElementById('studies');
-      const out = document.getElementById('out-q');
-
-      if (!q) {
-        if (abortQ) abortQ.abort();
-        status.textContent = '（等待輸入）';
-        list.innerHTML = '';
-        out.textContent = '（等待輸入）';
-        return;
-      }
-      status.innerHTML = '<span class="spinner"></span> Typing… waiting to query';
-      clearTimeout(qTimer);
-      qTimer = setTimeout(() => fetchStudies(q), DEBOUNCE_Q_MS);
-    });
-
-    async function fetchStudies(q) {
-      if (abortQ) abortQ.abort();
-      abortQ = new AbortController();
-
-      const status = document.getElementById('status-q');
-      const list = document.getElementById('studies');
-      const out = document.getElementById('out-q');
-
-      status.innerHTML = '<span class="spinner"></span> Requesting…';
-      list.innerHTML = '';
-      out.textContent = '';
-
-      const encoded = encodeURIComponent(q);
-      try {
-        const { info, data, isJSON } = await fetchSmart(`${BASE}/query/${encoded}/studies`, abortQ.signal);
-        status.textContent = info;
-
-        // 嘗試將結果渲染為卡片；若不知結構，退回 raw JSON 下方顯示
-        if (isJSON) {
-          renderStudies(list, data);
-          out.textContent = JSON.stringify(data, null, 2);
+        if (ct.includes("application/json")) {
+          const data = await resp.json();
+          return { info, data, isJSON: true };
         } else {
-          out.textContent = String(data);
+          const text = await resp.text();
+          return { info, data: text, isJSON: false };
         }
-      } catch (err) {
-        status.textContent = 'Request failed';
-        out.textContent =
-          'Error: ' + (err?.message || String(err)) +
-          '\n\nTips:\n- Make sure query is valid (URL-encoded automatically)\n- Server availability\n- Network / CORS issues';
-      }
-    }
-
-    function renderStudies(container, payload) {
-      // 常見資料格式：陣列 或 物件含 results/studies
-      let arr = [];
-      if (Array.isArray(payload)) arr = payload;
-      else if (Array.isArray(payload?.results)) arr = payload.results;
-      else if (Array.isArray(payload?.studies)) arr = payload.studies;
-
-      if (!arr.length) {
-        container.innerHTML = '<div class="muted">No studies found.</div>';
-        return;
       }
 
-      const MAX = 100; // 最多渲染 100 筆，避免過慢
-      const show = arr.slice(0, MAX);
-      container.innerHTML = show.map(renderStudyCard).join('');
-    }
-
-    function renderStudyCard(item) {
-      // 嘗試提取常見欄位；若沒有則通用轉字串
-      const id = item.id ?? item.study_id ?? item.sid ?? '';
-      const title = item.title ?? item.name ?? '';
-      const year = item.year ?? item.pub_year ?? '';
-      const terms = item.terms ?? item.tags ?? item.keywords ?? [];
-
-      let termsHtml = '';
-      if (Array.isArray(terms)) {
-        termsHtml = `<div>${terms.map(t => `<span class="tag">${escapeHtml(t)}</span>`).join('')}</div>`;
+      function escapeHtml(s) {
+        return String(s)
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;")
+          .replaceAll("'", "&#39;");
       }
 
-      // 其餘欄位（排除已用）
-      const extras = Object.entries(item)
-        .filter(([k]) => !['id','study_id','sid','title','name','year','pub_year','terms','tags','keywords'].includes(k))
-        .map(([k,v]) => `<div class="kv"><b>${escapeHtml(k)}:</b> ${escapeHtml(typeof v === 'object' ? JSON.stringify(v) : v)}</div>`)
-        .join('');
+      // ===== A. /terms =====
+      let abortAllTerms;
+      async function loadAllTerms() {
+        if (abortAllTerms) abortAllTerms.abort();
+        abortAllTerms = new AbortController();
+        const status = document.getElementById("status-terms");
+        const chips = document.getElementById("terms-chips");
+        const out = document.getElementById("out-terms");
+        status.innerHTML =
+          '<span class="inline-block w-3 h-3 rounded-full border-2 border-slate-300 border-t-slate-900 animate-spin"></span> <span class="ml-1.5">Requesting…</span>';
+        chips.innerHTML = "";
+        out.textContent = "";
 
-      return `
-        <article class="study">
-          <div class="title">${escapeHtml(title || '(untitled)')}</div>
-          <div class="kv">${id ? `<b>ID:</b> ${escapeHtml(id)} &nbsp;` : ''}${year ? `<b>Year:</b> ${escapeHtml(year)}` : ''}</div>
-          ${termsHtml}
-          ${extras}
-        </article>
-      `;
-    }
+        try {
+          const { info, data, isJSON } = await fetchSmart(
+            `${BASE}/terms`,
+            abortAllTerms.signal
+          );
+          status.textContent = info;
 
-    // 可選：頁面載入時先試一發 /terms
-    // loadAllTerms();
-  </script>
-</body>
+          if (isJSON && (Array.isArray(data) || Array.isArray(data?.terms))) {
+            const arr = Array.isArray(data) ? data : data.terms;
+            const show = arr.slice(0, 200);
+            chips.innerHTML = show
+              .map(
+                (t) =>
+                  `<button class="inline-flex items-center gap-1 px-2 py-0.5 text-[0.65rem] rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100 hover:bg-indigo-100 transition term-chip" data-term="${escapeHtml(
+                    t
+                  )}">${escapeHtml(t)}</button>`
+              )
+              .join("");
+            // 讓 chips 可以點 → 填到 /terms/<t1> input
+            chips.querySelectorAll(".term-chip").forEach((btn) => {
+              btn.addEventListener("click", () => {
+                const v = btn.dataset.term || "";
+                const inp = document.getElementById("inp-t1");
+                inp.value = v;
+                triggerTermsT1Fetch(v);
+              });
+            });
+          }
+          out.textContent = isJSON
+            ? JSON.stringify(data, null, 2)
+            : String(data);
+        } catch (err) {
+          status.innerHTML =
+            '<span class="px-2 py-1 rounded-lg bg-red-50 text-red-700 text-xs border border-red-100">Request failed</span>';
+          out.textContent =
+            "Error: " +
+            (err?.message || String(err)) +
+            "\\n\\nCommon causes:\\n1) CORS/HTTPS issues\\n2) Server unavailable\\n3) Network problems";
+        }
+      }
+
+      document
+        .getElementById("btn-terms")
+        .addEventListener("click", loadAllTerms);
+
+      // example buttons for terms
+      document.querySelectorAll(".terms-example").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const v = btn.dataset.termExample;
+          document.getElementById("inp-t1").value = v;
+          triggerTermsT1Fetch(v);
+        });
+      });
+
+      // ===== B. /terms/<t1> =====
+      let abortT1;
+      const DEBOUNCE_MS = 350;
+      let t1Timer = null;
+
+      document.getElementById("inp-t1").addEventListener("input", (e) => {
+        const val = e.target.value.trim();
+        triggerTermsT1Fetch(val);
+      });
+
+      function triggerTermsT1Fetch(val) {
+        const status = document.getElementById("status-t1");
+        const chips = document.getElementById("assoc-chips");
+        const out = document.getElementById("out-t1");
+
+        if (!val) {
+          if (abortT1) abortT1.abort();
+          status.textContent = "（等待輸入）";
+          chips.innerHTML = "";
+          out.textContent = "（等待輸入）";
+          return;
+        }
+
+        status.innerHTML =
+          '<span class="inline-block w-3 h-3 rounded-full border-2 border-slate-300 border-t-slate-900 animate-spin"></span> <span class="ml-1.5">Typing… waiting to query</span>';
+        clearTimeout(t1Timer);
+        t1Timer = setTimeout(() => fetchAssociatedTerms(val), DEBOUNCE_MS);
+      }
+
+      async function fetchAssociatedTerms(t1) {
+        if (abortT1) abortT1.abort();
+        abortT1 = new AbortController();
+
+        const status = document.getElementById("status-t1");
+        const chips = document.getElementById("assoc-chips");
+        const out = document.getElementById("out-t1");
+
+        status.innerHTML =
+          '<span class="inline-block w-3 h-3 rounded-full border-2 border-slate-300 border-t-slate-900 animate-spin"></span> <span class="ml-1.5">Requesting…</span>';
+        chips.innerHTML = "";
+        out.textContent = "";
+
+        const encoded = encodeURIComponent(t1);
+        try {
+          const { info, data, isJSON } = await fetchSmart(
+            `${BASE}/terms/${encoded}`,
+            abortT1.signal
+          );
+          status.textContent = info;
+
+          if (isJSON && (Array.isArray(data) || Array.isArray(data?.terms))) {
+            const arr = Array.isArray(data) ? data : data.terms;
+            chips.innerHTML = arr
+              .map(
+                (x) =>
+                  `<span class="inline-flex items-center gap-1 px-2 py-0.5 text-[0.65rem] rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100">${escapeHtml(
+                    x
+                  )}</span>`
+              )
+              .join("");
+          }
+          out.textContent = isJSON
+            ? JSON.stringify(data, null, 2)
+            : String(data);
+        } catch (err) {
+          status.innerHTML =
+            '<span class="px-2 py-1 rounded-lg bg-red-50 text-red-700 text-xs border border-red-100">Request failed</span>';
+          out.textContent =
+            "Error: " +
+            (err?.message || String(err)) +
+            "\\n\\nTips:\\n- Check the term\\n- Server availability\\n- Network / CORS issues";
+        }
+      }
+
+      // ===== C. /query/<q>/studies =====
+      let abortQ;
+      let qTimer = null;
+      const DEBOUNCE_Q_MS = 400;
+
+      document.getElementById("inp-q").addEventListener("input", (e) => {
+        const q = e.target.value.trim();
+        triggerQueryFetch(q);
+      });
+
+      // example buttons for query
+      document.querySelectorAll(".query-example").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const v = btn.dataset.queryExample;
+          const inp = document.getElementById("inp-q");
+          inp.value = v;
+          triggerQueryFetch(v);
+        });
+      });
+
+      function triggerQueryFetch(q) {
+        const status = document.getElementById("status-q");
+        const list = document.getElementById("studies");
+        const out = document.getElementById("out-q");
+
+        if (!q) {
+          if (abortQ) abortQ.abort();
+          status.textContent = "（等待輸入）";
+          list.innerHTML = "";
+          out.textContent = "（等待輸入）";
+          return;
+        }
+
+        status.innerHTML =
+          '<span class="inline-block w-3 h-3 rounded-full border-2 border-slate-300 border-t-slate-900 animate-spin"></span> <span class="ml-1.5">Typing… waiting to query</span>';
+        clearTimeout(qTimer);
+        qTimer = setTimeout(() => fetchStudies(q), DEBOUNCE_Q_MS);
+      }
+
+      async function fetchStudies(q) {
+        if (abortQ) abortQ.abort();
+        abortQ = new AbortController();
+
+        const status = document.getElementById("status-q");
+        const list = document.getElementById("studies");
+        const out = document.getElementById("out-q");
+
+        status.innerHTML =
+          '<span class="inline-block w-3 h-3 rounded-full border-2 border-slate-300 border-t-slate-900 animate-spin"></span> <span class="ml-1.5">Requesting…</span>';
+        list.innerHTML = "";
+        out.textContent = "";
+
+        const encoded = encodeURIComponent(q);
+        try {
+          const { info, data, isJSON } = await fetchSmart(
+            `${BASE}/query/${encoded}/studies`,
+            abortQ.signal
+          );
+          status.textContent = info;
+
+          if (isJSON) {
+            renderStudies(list, data);
+            out.textContent = JSON.stringify(data, null, 2);
+          } else {
+            out.textContent = String(data);
+          }
+        } catch (err) {
+          status.innerHTML =
+            '<span class="px-2 py-1 rounded-lg bg-red-50 text-red-700 text-xs border border-red-100">Request failed</span>';
+          out.textContent =
+            "Error: " +
+            (err?.message || String(err)) +
+            "\\n\\nTips:\\n- Make sure query is valid (URL-encoded automatically)\\n- Server availability\\n- Network / CORS issues";
+        }
+      }
+
+      function renderStudies(container, payload) {
+        let arr = [];
+        if (Array.isArray(payload)) arr = payload;
+        else if (Array.isArray(payload?.results)) arr = payload.results;
+        else if (Array.isArray(payload?.studies)) arr = payload.studies;
+
+        if (!arr.length) {
+          container.innerHTML =
+            '<div class="text-xs text-slate-400">No studies found.</div>';
+          return;
+        }
+
+        const MAX = 80;
+        const show = arr.slice(0, MAX);
+        container.innerHTML = show.map(renderStudyCard).join("");
+      }
+
+      function renderStudyCard(item) {
+        const id = item.id ?? item.study_id ?? item.sid ?? "";
+        const title = item.title ?? item.name ?? "(untitled)";
+        const year = item.year ?? item.pub_year ?? "";
+        const terms = item.terms ?? item.tags ?? item.keywords ?? [];
+
+        let termsHtml = "";
+        if (Array.isArray(terms)) {
+          termsHtml =
+            '<div class="flex flex-wrap gap-1 mt-2">' +
+            terms
+              .map(
+                (t) =>
+                  `<span class="inline-flex items-center gap-1 px-2 py-0.5 text-[0.65rem] rounded-full bg-cyan-50 text-cyan-800 border border-cyan-100">${escapeHtml(
+                    t
+                  )}</span>`
+              )
+              .join("") +
+            "</div>";
+        }
+
+        const extras = Object.entries(item)
+          .filter(([k]) =>
+            [
+              "id",
+              "study_id",
+              "sid",
+              "title",
+              "name",
+              "year",
+              "pub_year",
+              "terms",
+              "tags",
+              "keywords",
+            ].includes(k)
+              ? false
+              : true
+          )
+          .map(
+            ([k, v]) =>
+              `<div class="text-[0.6rem] text-slate-500"><span class="font-medium">${escapeHtml(
+                k
+              )}:</span> ${escapeHtml(
+                typeof v === "object" ? JSON.stringify(v) : v
+              )}</div>`
+          )
+          .join("");
+
+        return `
+          <article class="rounded-xl border border-slate-100 bg-slate-50/60 p-3 hover:border-slate-200 transition">
+            <div class="text-sm font-semibold text-slate-800 mb-0.5">${escapeHtml(
+              title
+            )}</div>
+            <div class="text-[0.65rem] text-slate-500 mb-1">
+              ${id ? `<b class="text-slate-600">ID:</b> ${escapeHtml(id)}` : ""}
+              ${year ? ` · <b class="text-slate-600">Year:</b> ${escapeHtml(year)}` : ""}
+            </div>
+            ${termsHtml}
+            ${extras ? `<div class="mt-2 space-y-0.5">${extras}</div>` : ""}
+          </article>
+        `;
+      }
+
+      // 可選：一進來就載入一次所有 terms
+      // loadAllTerms();
+    </script>
+  </body>
 </html>
